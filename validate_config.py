@@ -5,17 +5,6 @@ import json
 from netmiko import ConnectHandler
 import textfsm
 
-def init_conn(target: str, username: str, password: str, conn_method_ssh: bool, nos: str) -> ConnectHandler:
-    '''
-        
-    '''
-
-    if not conn_method_ssh and nos == 'ios':
-        conn = ConnectHandler(device_type = 'cisco_ios_telnet', ip = target, username = username, password = password)
-        conn.enable()
-    else:
-    return conn
-
 def remove_vty_acls(acl_list: str, netmiko_handler: ConnectHandler):
    '''
 
@@ -48,18 +37,24 @@ def get_vty_acl(target_host, username, password, conn_method, range_start, range
 
 def main():
     
-    with open('devices.json', 'r') as f:
+    with open('devices-new-2.json', 'r') as f:
         devices = json.load(f)
-    
-    for device in devices:
+    with open('devices.json', 'r') as file2:
+        extended_devices = json.load(file2)
         
-        print(f"Now working on {device['hostname']}...")
-        try:
-            handler = init_conn(device['ip'], device['username'], device['password'], device['ssh_support'])
-
-
-        except Exception as e:
-            print(e)
+    for device in devices:
+        for ed in extended_devices:
+            if ed['hostname'] == device['host']:
+                if ed['pop_street'] == 'Ligocka':
+                   print(f"Now working on {device['host']}...")
+                   try:
+                       handler = ConnectHandler(**device)
+                       handler.enable()
+                       output = handler.send_command("show version")
+                       print(output)
+        
+                   except Exception as e:
+                       print(e)
         
 
 if __name__ == '__main__':
