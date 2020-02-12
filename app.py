@@ -26,14 +26,23 @@ def is_port_open(ip: str, port: str) -> bool:
    except:
      return False
 
+def init_conn(target: str, username: str, password: str, conn_method: str):
+	'''
+	
+	'''
+	
 
-def remove_vty_acls(acl_list, handler):
+def remove_vty_acls(acl_list: str, netmiko_handler: ConnectHandler):
+   '''
+   
+   '''
    config_commands = ['line vty 0 15', 'no access-class 5 in']
    handler.send_config_set(config_commands)
 
 def get_mgmt_acl(handler):
    output = handler.send_command("show ip interface vlan 5", use_textfsm=True)
    print(output)
+
 
 def get_tacacs(handler):
    output = handler.send_command("show tacacs", use_textfsm=True)
