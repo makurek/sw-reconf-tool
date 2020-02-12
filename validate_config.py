@@ -41,8 +41,10 @@ def main():
         devices = json.load(f)
     with open('devices.json', 'r') as file2:
         extended_devices = json.load(file2)
-        
+  
+    # Go over all devices in our netmiko compatible inventory
     for device in devices:
+        # For current device, look up additional metadata 
         for ed in extended_devices:
             if ed['hostname'] == device['host']:
                 if ed['pop_street'] == 'Ligocka':
