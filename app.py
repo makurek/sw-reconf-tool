@@ -7,8 +7,17 @@ import textfsm
 
 devices = {}
 
-def check_port(ip, port):
+def is_port_open(ip: str, port: str) -> bool:
 
+   '''
+   Checks if given port is open, in case the device is filtering traffic,
+   wait 2 seconds
+
+   Returns:
+
+   True, if device is reachable and port is open
+   False, if device is unreachable or port is closed
+   '''
    try:
      sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
      sock.settimeout(2)
@@ -16,6 +25,7 @@ def check_port(ip, port):
      return True
    except:
      return False
+
 
 def remove_vty_acls(acl_list, handler):
    config_commands = ['line vty 0 15', 'no access-class 5 in']
@@ -61,7 +71,7 @@ with open('cisco.txt', 'r') as file:
          continue
       print("Starting telnet check")
       # Check if telnet supported
-      if check_port(device['ip'], 23):
+      if is_port_open(device['ip'], 23):
          device['telnet_support'] = "True"
       else:
          device['telnet_support'] = "False"
