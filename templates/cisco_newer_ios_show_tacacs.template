@@ -1,5 +1,5 @@
 Value TACACS_SERVER (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})
-Value TACACS_PORT (\d{2,5})
+Value TACACS_PORT (\d{2})
 Value SOCKET_OPENS (\d+)
 Value SOCKET_CLOSES (\d+)
 Value SOCKET_ABORTS (\d+)
@@ -12,6 +12,8 @@ Value PACKET_RECEIVED (\d+)
 
 Start
   ^Tacacs\+ Server\s+.*:\s+${TACACS_SERVER}/${TACACS_PORT}\s*$$
+  ^\s+Server\s+address:\s+${TACACS_SERVER}\s*$$
+  ^\s+Server\s+port:\s+${TACACS_PORT}\s*$$
   ^\s+Socket\s+opens:\s+ ${SOCKET_OPENS}\s*$$
   ^\s+Socket\s+closes:\s+${SOCKET_CLOSES}\s*$$
   ^\s+Socket\s+aborts:\s+${SOCKET_ABORTS}\s*$$

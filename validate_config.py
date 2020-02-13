@@ -17,9 +17,14 @@ def get_mgmt_acl(handler):
    print(output)
 
 
-def get_tacacs(handler):
+def get_tacacs(handler: ConnectHandler):
+   '''
+    This function collects configured TACACS+ servers
+
+
+   '''
    output = handler.send_command("show tacacs", use_textfsm=True)
-   print(output)
+   return output
 
 def get_vty_acl(target_host, username, password, conn_method, range_start, range_end):
    try:
@@ -37,26 +42,24 @@ def get_vty_acl(target_host, username, password, conn_method, range_start, range
 
 def main():
     
-    with open('devices-new-2.json', 'r') as f:
+    with open('inventory-netmiko.json', 'r') as f:
         devices = json.load(f)
-    with open('devices.json', 'r') as file2:
-        extended_devices = json.load(file2)
+    with open('inventory-new.json', 'r') as file2:
+        devices_meta = json.load(file2)
   
     # Go over all devices in our netmiko compatible inventory
     for device in devices:
         # For current device, look up additional metadata 
-        for ed in extended_devices:
-            if ed['hostname'] == device['host']:
-                if ed['pop_street'] == 'Ligocka':
-                   print(f"Now working on {device['host']}...")
-                   try:
-                       handler = ConnectHandler(**device)
-                       handler.enable()
-                       output = handler.send_command("show version")
-                       print(output)
+        if devices_meta[device['host']].get('pop_street') == "Ligocka":
+            print(f"Now working on {device['host']}...")
+            try:
+                handler = ConnectHandler(**device)
+                handler.enable()
+                # Get configured TACACS servers
+                print(get_tacacs(handler))             
         
-                   except Exception as e:
-                       print(e)
+            except Exception as e:
+                print(e)
         
 
 if __name__ == '__main__':

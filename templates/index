@@ -1,4 +1,4 @@
 Template, Hostname, Vendor, Command
 ios_line_vty.template, .*, Cisco, sh[[ow]] line vty 0 15
 cisco_ios_show_ip_interface.template, .*, Cisco, sh[[ow]] ip interface
-cisco_ios_show_tacacs.template, .*, Cisco, sh[[ow]] tacacs
+cisco_newer_ios_show_tacacs.template, .*, Cisco, sh[[ow]] tacacs
