@@ -45,7 +45,7 @@ def main():
     # Go over all devices in our netmiko compatible inventory
     for device in devices:
         # For current device, look up additional metadata 
-        if device['host']  == "kat-lig-asr":
+        if devices_meta[device['host']].get('pop_street')  == "Ligocka":
             print(f"Now working on {device['host']}...")
             try:
                 handler = ConnectHandler(**device)
