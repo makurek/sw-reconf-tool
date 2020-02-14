@@ -18,27 +18,21 @@ def get_mgmt_acl(handler):
 
 
 def get_tacacs(handler: ConnectHandler):
-   '''
+    '''
     This function collects configured TACACS+ servers
 
+    '''
+    output = handler.send_command("show tacacs", use_textfsm=True)
+    return output
 
-   '''
-   output = handler.send_command("show tacacs", use_textfsm=True)
-   return output
-
-def get_vty_acl(target_host, username, password, conn_method, range_start, range_end):
-   try:
-      conn = ConnectHandler(device_type = 'cisco_ios_telnet', ip = target_host, username = username, password = password)
-      conn.enable()
-      output = conn.send_command("show line vty 0 15", use_textfsm=True)
-      print(output)
-      remove_vty_acls(output, conn)
-      get_mgmt_acl(conn)
-      get_tacacs(conn)
-   except Exception as e:
-      print(e)
-      return False
-
+def get_vty_acls(handler: ConnectHandler, device_meta):
+    
+    if '3560' or '4948' or '4500' or '4900' in device_meta['model']:
+        command = "show line vty 0 15"
+    elif 'asr' in device_meta['model']:
+        command = "show line vty 0 197"
+    output = handler.send_command(command, use_textfsm=True)
+    return output
 
 def main():
     
@@ -56,7 +50,8 @@ def main():
                 handler = ConnectHandler(**device)
                 handler.enable()
                 # Get configured TACACS servers
-                print(get_tacacs(handler))             
+                print(get_tacacs(handler))     
+                print(get_vty_acls(handler, devices_meta[device['host']]))
         
             except Exception as e:
                 print(e)
