@@ -2,4 +2,4 @@ Value TTY (\d+)
 Value ACCI (\d+)
 
 Start
-  ^\*?\s+${TTY}\sVTY\s+-\s+-\s+-\s+-\s+${ACCI}.* -> Record
+  ^\*?\s+${TTY}\s*\d*\s*VTY\s+-\s+-\s+-\s+-\s+${ACCI}.* -> Record

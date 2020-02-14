@@ -13,6 +13,7 @@ def remove_vty_acls(acl_list: str, netmiko_handler: ConnectHandler):
    handler.send_config_set(config_commands)
 
 def get_mgmt_acl(handler):
+
    output = handler.send_command("show ip interface vlan 5", use_textfsm=True)
    print(output)
 
@@ -27,10 +28,10 @@ def get_tacacs(handler: ConnectHandler):
 
 def get_vty_acls(handler: ConnectHandler, device_meta):
     
-    if '3560' or '4948' or '4500' or '4900' in device_meta['model']:
-        command = "show line vty 0 15"
-    elif 'asr' in device_meta['model']:
+    if device_meta['model'] == 'ASR-920-24SZ-IM':
         command = "show line vty 0 197"
+    elif '3560' or '4948' or '4500' or '4900' in device_meta['model']:
+        command = "show line vty 0 15"
     output = handler.send_command(command, use_textfsm=True)
     return output
 
@@ -44,18 +45,18 @@ def main():
     # Go over all devices in our netmiko compatible inventory
     for device in devices:
         # For current device, look up additional metadata 
-        if devices_meta[device['host']].get('pop_street') == "Ligocka":
+        if device['host']  == "kat-lig-asr":
             print(f"Now working on {device['host']}...")
             try:
                 handler = ConnectHandler(**device)
-                handler.enable()
+#               handler.send_command("terminal length 0")
                 # Get configured TACACS servers
                 print(get_tacacs(handler))     
+                # Get configured ACLs on line VTYs
                 print(get_vty_acls(handler, devices_meta[device['host']]))
         
             except Exception as e:
-                print(e)
-        
+                print(e)    
 
 if __name__ == '__main__':
 
