@@ -36,6 +36,27 @@ def get_vty_acls(handler: ConnectHandler, device_meta):
     output = handler.send_command(command, use_textfsm=True)
     return output
 
+def process_vty_acls(vty_acls):
+    '''
+    Convert JSON from the device into a form suitable for reporting
+    '''
+    print(vty_acls)
+    tty_array = []
+    acl = set()
+    # First, I check if result is uniform across all VTYs
+    for vty in vty_acls:
+        tty_array.append(int(vty['tty']))
+        acl.add(vty['acci'])
+    val_min = min(tty_array)
+    val_max = max(tty_array)
+    if len(acl) == 1:
+        d = {}
+        d['range_min'] = val_min
+        d['range_max'] = val_max
+        d['acl'] = list(acl)[0]
+        return d
+    else:
+        return "Non uniform"
 def main():
     
     with open('inventory-netmiko.json', 'r') as f:
@@ -50,22 +71,24 @@ def main():
             if devices_meta[device['host']].get('nos') == "iosxr":
                 print("Skipping IOS XR...")
                 continue
-            elif devices_meta[device['host']].get('pop_street') == "Ligocka":
-                try:
-                    handler = ConnectHandler(**device)
-                    # Get configured TACACS servers
-                    tacacs = get_tacacs(handler)
-                    # Get configured ACLs on line VTYs
-                    vty_acls = get_vty_acls(handler, devices_meta[device['host']])
-                    current_device = {}
-                    t = []
-                    current_device['hostname'] = device['host']
-                    for tac in tacacs:
-                        t.append(tac['tacacs_server'])
-                    current_device['tacacs'] = t
-                    report_devices.append(current_device)
-                except Exception as e:
-                    print(e)    
+#            elif devices_meta[device['host']].get('pop_street') == "Ligocka":
+            try:
+                handler = ConnectHandler(**device)
+                # Get configured TACACS servers
+                tacacs = get_tacacs(handler)
+                # Get configured ACLs on line VTYs
+                vty_acls = get_vty_acls(handler, devices_meta[device['host']])
+                # 
+                current_device = {}
+                t = []
+                current_device['hostname'] = device['host']
+                current_device['vty'] = process_vty_acls(vty_acls)
+                for tac in tacacs:
+                    t.append(tac['tacacs_server'])
+                current_device['tacacs'] = t
+                report_devices.append(current_device)
+            except Exception as e:
+                print(e)    
     # Generate report
     jinja2_template = open("report.html", "r").read()
     template = Template(jinja2_template)
