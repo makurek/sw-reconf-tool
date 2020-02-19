@@ -1,0 +1,6 @@
+Value STATUS (\S+)
+Value STRATUM (\d+)
+Value SERVER (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})
+
+Start
+  ^Clock is ${STATUS}, stratum ${STRATUM}, reference is ${SERVER}.* -> Record

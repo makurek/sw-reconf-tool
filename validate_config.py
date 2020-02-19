@@ -36,11 +36,27 @@ def get_vty_acls(handler: ConnectHandler, device_meta):
     output = handler.send_command(command, use_textfsm=True)
     return output
 
+def get_svi_acl_ip(handler: ConnectHandler, device_meta):
+
+    if device_meta['ip'] == "172.22.36.50":
+        command = "show ip interface vlan 2861"
+    elif device_meta['ip'] == "172.22.36.18":
+        command = "show ip interface vlan 1861"
+    else:
+        command = "show ip interface vlan 861"
+    output = handler.send_command(command, use_textfsm=True)
+    return output
+
+def get_ntp_status(handler: ConnectHandler, device_meta):
+
+    command = "show ntp status"
+    output = handler.send_command(command, use_textfsm=True)
+    return output
+
 def process_vty_acls(vty_acls):
     '''
     Convert JSON from the device into a form suitable for reporting
     '''
-    print(vty_acls)
     tty_array = []
     acl = set()
     # First, I check if result is uniform across all VTYs
@@ -63,6 +79,8 @@ def main():
         devices = json.load(f)
     with open('inventory-new.json', 'r') as file2:
         devices_meta = json.load(file2)
+    # A list that will be passed over to jinja2
+    # It holds dictionaries
     report_devices = []
     # Go over all devices in our netmiko compatible inventory
     for device in devices:
@@ -71,26 +89,42 @@ def main():
             if devices_meta[device['host']].get('nos') == "iosxr":
                 print("Skipping IOS XR...")
                 continue
-#            elif devices_meta[device['host']].get('pop_street') == "Ligocka":
-            try:
-                handler = ConnectHandler(**device)
-                # Get configured TACACS servers
-                tacacs = get_tacacs(handler)
-                # Get configured ACLs on line VTYs
-                vty_acls = get_vty_acls(handler, devices_meta[device['host']])
-                # 
-                current_device = {}
-                t = []
-                current_device['hostname'] = device['host']
-                current_device['vty'] = process_vty_acls(vty_acls)
-                for tac in tacacs:
-                    t.append(tac['tacacs_server'])
-                current_device['tacacs'] = t
-                report_devices.append(current_device)
-            except Exception as e:
-                print(e)    
+            elif devices_meta[device['host']].get('pop_street') == "Ligocka":
+                try:
+                    handler = ConnectHandler(**device)
+                    # Get configured TACACS servers
+                    tacacs = get_tacacs(handler)
+                    # Get configured ACLs on line VTYs
+                    vty_acls = get_vty_acls(handler, devices_meta[device['host']])
+                    # Get configured ACL and IP address on a SVI
+                    if devices_meta[device['host']].get('model') == "ASR-920-24SZ-IM":
+                        d = {}
+                        d['ipaddr'] = [devices_meta[device['host']].get('ip')]
+                        d['inbound_acl'] = "NA"
+                        svi_acl = []
+                        svi_acl.append(d)
+                    else:
+                        svi_acl = get_svi_acl_ip(handler, devices_meta[device['host']])
+                    ntp_status = get_ntp_status(handler, devices_meta[device['host']])
+                    print(ntp_status)
+                    # Results processing
+                    current_device = {}; t = []
+                    current_device['hostname'] = device['host']
+                    current_device['vty'] = process_vty_acls(vty_acls)
+                    current_device['vlan861_ip'] = svi_acl[0].get('ipaddr')[0]
+                    current_device['vlan861_acl'] = svi_acl[0].get('inbound_acl')
+                    current_device['ntp_status'] = ntp_status[0].get('status')
+                    current_device['ntp_stratum'] = ntp_status[0].get('stratum')
+                    current_device['ntp_server'] = ntp_status[0].get('server')
+                    for tac in tacacs:
+                        t.append(tac['tacacs_server'])
+                    current_device['tacacs'] = t
+                    # Append assembled dict to final list
+                    report_devices.append(current_device)
+                except Exception as e:
+                    print(e)    
     # Generate report
-    jinja2_template = open("report.html", "r").read()
+    jinja2_template = open("device_audit.html", "r").read()
     template = Template(jinja2_template)
     rendered_template = template.render(devices = report_devices)
     print(rendered_template)
