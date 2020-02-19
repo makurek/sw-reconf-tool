@@ -89,40 +89,40 @@ def main():
             if devices_meta[device['host']].get('nos') == "iosxr":
                 print("Skipping IOS XR...")
                 continue
-            elif devices_meta[device['host']].get('pop_street') == "Ligocka":
-                try:
-                    handler = ConnectHandler(**device)
+ #           elif devices_meta[device['host']].get('pop_street') == "Ligocka":
+            try:
+                handler = ConnectHandler(**device)
                     # Get configured TACACS servers
-                    tacacs = get_tacacs(handler)
+                tacacs = get_tacacs(handler)
                     # Get configured ACLs on line VTYs
-                    vty_acls = get_vty_acls(handler, devices_meta[device['host']])
+                vty_acls = get_vty_acls(handler, devices_meta[device['host']])
                     # Get configured ACL and IP address on a SVI
-                    if devices_meta[device['host']].get('model') == "ASR-920-24SZ-IM":
-                        d = {}
-                        d['ipaddr'] = [devices_meta[device['host']].get('ip')]
-                        d['inbound_acl'] = "NA"
-                        svi_acl = []
-                        svi_acl.append(d)
-                    else:
-                        svi_acl = get_svi_acl_ip(handler, devices_meta[device['host']])
-                    ntp_status = get_ntp_status(handler, devices_meta[device['host']])
-                    print(ntp_status)
+                if (devices_meta[device['host']].get('model') == "ASR-920-24SZ-IM") or (devices_meta[device['host']].get('model') == "CSR1000V"):
+                    d = {}
+                    d['ipaddr'] = [devices_meta[device['host']].get('ip')]
+                    d['inbound_acl'] = "NA"
+                    svi_acl = []
+                    svi_acl.append(d)
+                else:
+                    svi_acl = get_svi_acl_ip(handler, devices_meta[device['host']])
+                ntp_status = get_ntp_status(handler, devices_meta[device['host']])
+                print(ntp_status)
                     # Results processing
-                    current_device = {}; t = []
-                    current_device['hostname'] = device['host']
-                    current_device['vty'] = process_vty_acls(vty_acls)
-                    current_device['vlan861_ip'] = svi_acl[0].get('ipaddr')[0]
-                    current_device['vlan861_acl'] = svi_acl[0].get('inbound_acl')
-                    current_device['ntp_status'] = ntp_status[0].get('status')
-                    current_device['ntp_stratum'] = ntp_status[0].get('stratum')
-                    current_device['ntp_server'] = ntp_status[0].get('server')
-                    for tac in tacacs:
-                        t.append(tac['tacacs_server'])
-                    current_device['tacacs'] = t
+                current_device = {}; t = []
+                current_device['hostname'] = device['host']
+                current_device['vty'] = process_vty_acls(vty_acls)
+                current_device['vlan861_ip'] = svi_acl[0].get('ipaddr')[0]
+                current_device['vlan861_acl'] = svi_acl[0].get('inbound_acl')
+                current_device['ntp_status'] = ntp_status[0].get('status')
+                current_device['ntp_stratum'] = ntp_status[0].get('stratum')
+                current_device['ntp_server'] = ntp_status[0].get('server').strip()
+                for tac in tacacs:
+                    t.append(tac['tacacs_server'])
+                current_device['tacacs'] = t
                     # Append assembled dict to final list
-                    report_devices.append(current_device)
-                except Exception as e:
-                    print(e)    
+                report_devices.append(current_device)
+            except Exception as e:
+                print(e)    
     # Generate report
     jinja2_template = open("device_audit.html", "r").read()
     template = Template(jinja2_template)
