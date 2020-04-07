@@ -124,7 +124,7 @@ def main():
             except Exception as e:
                 print(e)    
     # Generate report
-    jinja2_template = open("device_audit.html", "r").read()
+    jinja2_template = open("j2_templates/device_audit.html", "r").read()
     template = Template(jinja2_template)
     rendered_template = template.render(devices = report_devices)
     print(rendered_template)

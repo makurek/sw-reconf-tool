@@ -12,9 +12,9 @@ and adds another route to 192.168.194.0/24 and 192.168.195.0/24 via the same NH
 """
 
 
-def get_route(handler: ConnectHandler, device_meta):
+def get_routes(handler: ConnectHandler):
 
-    command = "show ip route 172.22.255.0"
+    command = "show ip route"
     output = handler.send_command(command, use_textfsm=True)
     return output
 
@@ -38,30 +38,21 @@ def main():
                 continue
             try:
                 handler = ConnectHandler(**device)
-                    # Check for old static route to 172.22.255.0/24
-                route = get_route(handler)
-                
+                # Check for old static route to 172.22.255.0/24
+                routes = get_routes(handler)
+                res = []
+                for route in routes:
+                    if route['network'] == "172.22.255.0" or route['network'] == '172.22.0.0' or route['network'] == '0.0.0.0':
+                        i = {}
+                        i['network'] = f"{route['network']}/{route['mask']}"
+                        i['nh'] = route['nexthop_ip']
+                        res.append(i)
+                        print(f"device {device['host']} {i}")
                 # Results processing
                 current_device = {}; t = []
                 current_device['hostname'] = device['host']
-                current_device['vty'] = process_vty_acls(vty_acls)
-                current_device['vlan861_ip'] = svi_acl[0].get('ipaddr')[0]
-                current_device['vlan861_acl'] = svi_acl[0].get('inbound_acl')
-                current_device['ntp_status'] = ntp_status[0].get('status')
-                current_device['ntp_stratum'] = ntp_status[0].get('stratum')
-                current_device['ntp_server'] = ntp_status[0].get('server').strip()
-                for tac in tacacs:
-                    t.append(tac['tacacs_server'])
-                current_device['tacacs'] = t
-                    # Append assembled dict to final list
-                report_devices.append(current_device)
             except Exception as e:
                 print(e)    
-    # Generate report
-    jinja2_template = open("device_audit.html", "r").read()
-    template = Template(jinja2_template)
-    rendered_template = template.render(devices = report_devices)
-    print(rendered_template)
 
 if __name__ == '__main__':
 
