@@ -4,6 +4,7 @@ import socket
 import json
 from netmiko import ConnectHandler
 import textfsm
+import re
 from jinja2 import Template
 
 def remove_vty_acls(acl_list: str, netmiko_handler: ConnectHandler):
@@ -36,6 +37,13 @@ def get_vty_acls(handler: ConnectHandler, device_meta):
     output = handler.send_command(command, use_textfsm=True)
     return output
 
+def get_logging_server(handler: ConnectHandler, device_meta):
+
+    command = "show run | i logging"
+    output = handler.send_command(command)
+    syslog_servers = re.findall(r'[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}',output)
+    return syslog_servers
+
 def get_svi_acl_ip(handler: ConnectHandler, device_meta):
 
     if device_meta['ip'] == "172.22.36.50":
@@ -51,6 +59,13 @@ def get_ntp_status(handler: ConnectHandler, device_meta):
 
     command = "show ntp status"
     output = handler.send_command(command, use_textfsm=True)
+    return output
+
+def get_routes(handler: ConnectHandler):
+
+    command = "show ip route"
+    output = handler.send_command(command, use_textfsm=True)
+
     return output
 
 def process_vty_acls(vty_acls):
@@ -108,9 +123,13 @@ def main():
                 else:
                     svi_acl = get_svi_acl_ip(handler, devices_meta[device['host']])
                 ntp_status = get_ntp_status(handler, devices_meta[device['host']])
-#                logging_server = get_logging_server(handler, devices_meta[device['host']])
-                print(ntp_status)
-                    # Results processing
+                logging_server = get_logging_server(handler, devices_meta[device['host']])
+                routes = get_routes(handler)
+                routes_list = []
+                for route in routes:
+                    c = f"[{route['protocol']}] {route['network']}/{route['mask']} via {route['nexthop_ip']}"
+                    routes_list.append(c)
+                # Results processing
                 current_device = {}; t = []
                 current_device['hostname'] = device['host']
                 current_device['vty'] = process_vty_acls(vty_acls)
@@ -122,15 +141,22 @@ def main():
                 for tac in tacacs:
                     t.append(tac['tacacs_server'])
                 current_device['tacacs'] = t
+                current_device['syslog_servers'] = logging_server
+                current_device['routes'] = routes_list
                     # Append assembled dict to final list
                 report_devices.append(current_device)
             except Exception as e:
                 print(e)    
+
+
     # Generate report
     jinja2_template = open("j2_templates/device_audit.html", "r").read()
     template = Template(jinja2_template)
     rendered_template = template.render(devices = report_devices)
     print(rendered_template)
+
+
+
 
 if __name__ == '__main__':
 

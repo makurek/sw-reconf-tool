@@ -14,6 +14,7 @@
 		   <tr>
 			   <th scope="col">Item</th>
 			   <th scope="col">Hostname</th>
+			   <th scope="col">Routing</th>
 			   <th scope="col">TACACS+ Servers</th>
 			   <th scope="col">Syslog Servers</th>
 			   <th scope="col">VTY ACLs</th>
@@ -30,11 +31,20 @@
 				<td>{{ loop.index }}</td>
 				<td>{{ device['hostname'] }}</td>
 				<td>
+				{% for r in device['routes'] %}
+				{{ r }}<br>
+				{% endfor %}
+			 	</td>
+				<td>
 				{% for t in device['tacacs'] %}
-					{{ t }} 
+				{{ t }}<br> 
 				{% endfor %}
 				</td>
-				<td>TBD</td>
+				<td>
+				{% for t in device['syslog_servers'] %}
+				{{ t }}<br>
+				{% endfor %}
+				</td>
 				<td>{{ device['vty'].get('acl') }}</td>
 				<td>{{ device['vlan861_ip'] }} </td>
 				<td>{{ device['vlan861_acl'] }} </td>
