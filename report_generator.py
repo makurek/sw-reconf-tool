@@ -90,7 +90,7 @@ def process_vty_acls(vty_acls):
         return "Non uniform"
 def main():
     
-    with open('inventory.json', 'r') as f:
+    with open('inventory-netmiko.json', 'r') as f:
         devices = json.load(f)
     with open('inventory-new.json', 'r') as file2:
         devices_meta = json.load(file2)
@@ -124,11 +124,14 @@ def main():
                     svi_acl = get_svi_acl_ip(handler, devices_meta[device['host']])
                 ntp_status = get_ntp_status(handler, devices_meta[device['host']])
                 logging_server = get_logging_server(handler, devices_meta[device['host']])
-                routes = get_routes(handler)
-                routes_list = []
-                for route in routes:
-                    c = f"[{route['protocol']}] {route['network']}/{route['mask']} via {route['nexthop_ip']}"
-                    routes_list.append(c)
+                if (devices_meta[device['host']].get('model') == "ASR-920-24SZ-IM") or (devices_meta[device['host']].get('model') == "CSR1000V"):
+                    routes_list = ['NA']
+                else:
+                    routes = get_routes(handler)
+                    routes_list = []
+                    for route in routes:
+                        c = f"[{route['protocol']}] {route['network']}/{route['mask']} via {route['nexthop_ip']}"
+                        routes_list.append(c)
                 # Results processing
                 current_device = {}; t = []
                 current_device['hostname'] = device['host']
