@@ -4,3 +4,4 @@ cisco_ios_show_ip_interface.template, .*, Cisco, sh[[ow]] ip interface
 cisco_newer_ios_show_tacacs.template, .*, Cisco, sh[[ow]] tacacs
 cisco_ios_show_ntp_status.template, .*, Cisco, sh[[ow]] ntp status
 cisco_ios_show_ip_route.template, .*, cisco_ios, sh[[ow]] ip route
+cisco_ios_show_access_list.template, .*, cisco_ios, show[[ow]] ip access-lists

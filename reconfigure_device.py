@@ -54,6 +54,37 @@ def process_routes(routes):
 
     return result 
 
+def get_routes(handler: ConnectHandler):
+
+    command = "show ip route"
+    output = handler.send_command(command, use_textfsm=True)
+
+    return output
+
+def add_routes(handler: ConnectHandler, nh: str):
+    
+    route_1 = f"ip route 192.168.194.0 255.255.255.0 {nh}"
+    route_2 = f"ip route 192.168.195.0 255.255.255.0 {nh}"
+    output = handler.send_config_set(route_1)
+    output = handler.send_config_set(route_2)
+
+def add_vty_acl(handler: ConnectHandler):
+
+    # First check if there is any existing standard ACL with number 3
+    
+    command = "show ip access-lists 3"
+    output = handler.send_command(command, use_textfsm=True)
+    
+    # If there isn't, we can proceed
+
+    if not output:
+        acl = ['ip access-list standard 3', 'permit host 192.168.194.14', 'permit host 192.168.195.5', 'permit host 192.168.194.23','permit host 192.168.194.25','permit host 192.168.194.27','permit host 192.168.194.5','permit host 192.168.194.7', 'permit host 172.22.255.2', 'permit host 172.22.255.10']
+        output = handler.send_config_set(acl)
+    
+    command = "show ip access-lists 3"
+    output = handler.send_command(command, use_textfsm=True)
+    print(output)
+
 def reconfigure(device):
 
     """
@@ -61,25 +92,28 @@ def reconfigure(device):
 
     """
     handler = ConnectHandler(**device)
-    print(f"### Working on {device['host']} ###")
-    print(f"### Checking static routing BEFORE changes ###")
     
     # 1. Check existing static routes, determine NH
 
-    routes_before = get_routes(handler)
-    mgmt_routes_before = process_routes(routes_before)
-    nh = mgmt_routes_before[0]['nh']
+    #print(f"### Working on {device['host']} ###")
+    #print(f"### Checking static routing BEFORE changes ###")
+ 
+    #routes_before = get_routes(handler)
+    #mgmt_routes_before = process_routes(routes_before)
+    #nh = mgmt_routes_before[0]['nh']
 
     # 2. Add new routes via NH
 
-    print(f"### Adding new static routes... ###")
-    add_routes(handler, nh)
+    #print(f"### Adding new static routes... ###")
+    #add_routes(handler, nh)
 
     # 3. Verify if routes were addedd successfully
 
-    print(f"### Checking static routing AFTER changes ###")
-    routes_after = get_routes(handler)
-    mgmt_routes_after = process_routes(routes_after)
+    #print(f"### Checking static routing AFTER changes ###")
+    #routes_after = get_routes(handler)
+    #mgmt_routes_after = process_routes(routes_after)
+
+    add_vty_acl(handler)
 
     # 3. Check configured TACACS servers
 
@@ -101,31 +135,16 @@ def reconfigure(device):
 
     # 12. 
 
-def get_routes(handler: ConnectHandler):
-
-    command = "show ip route"
-    output = handler.send_command(command, use_textfsm=True)
-
-    return output
-
-def add_routes(handler: ConnectHandler, nh: str):
-    
-    route_1 = f"ip route 192.168.194.0 255.255.255.0 {nh}"
-    route_2 = f"ip route 192.168.195.0 255.255.255.0 {nh}"
-    output = handler.send_config_set(route_1)
-    output = handler.send_config_set(route_2)
-
 def main():
     
-    with open('inventory-netmiko.json', 'r') as f:
+    with open('inventory.json', 'r') as f:
         devices = json.load(f)
     with open('inventory-new.json', 'r') as file2:
         devices_meta = json.load(file2)
-    print(devices_meta)
 
     # Go over all devices in our netmiko compatible inventory
 
-        for device in devices:
+    for device in devices:
         # We skip IOS XR and IOS XE boxes, as they receive routes via BGP
         try:
             reconfigure(device)
