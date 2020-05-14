@@ -19,13 +19,37 @@ This script logs in to device, checks for presence of 172.22.255.0/24 route and 
 and adds another route to 192.168.194.0/24 and 192.168.195.0/24 via the same NH
 """
 
-def get_tacacs(handler: ConnectHandler, device_meta):
+
+
+def reconfigure_tacacs(handler: ConnectHandler):
     '''
     This function collects configured TACACS+ servers
 
     '''
+    DESIRED_OUTPUT = ['192.168.194.11', '192.168.195.3']
+    commands = []
     output = handler.send_command("show tacacs", use_textfsm=True)
-    return output
+    print("### BEFORE RECONFIG ###")
+    print(output)
+    for tac in output:
+        command = f"no tacacs-server host {tac['tacacs_server']}"
+        commands.append(command)
+    commands.append("tacacs-server host 192.168.194.11")
+    commands.append("tacacs-server host 192.168.195.3")
+    commands.append("tacacs-server key 0 12TacplusKEY!@")
+    print(commands)
+    output = handler.send_config_set(commands)
+    print("### AFTER RECONFIG ###")
+    output = handler.send_command("show tacacs", use_textfsm=True)
+    print(output)
+    final_list = []
+    for tac in output:
+        final_list.append(tac['tacacs_server'])
+
+    if final_list == DESIRED_OUTPUT:
+        print("ALL GOOD!")
+
+    
 
 def get_vty_acls(handler: ConnectHandler, device_meta):
 
@@ -113,7 +137,8 @@ def reconfigure(device):
     #routes_after = get_routes(handler)
     #mgmt_routes_after = process_routes(routes_after)
 
-    add_vty_acl(handler)
+    #add_vty_acl(handler)
+    reconfigure_tacacs(handler)
 
     # 3. Check configured TACACS servers
 
@@ -137,9 +162,9 @@ def reconfigure(device):
 
 def main():
     
-    with open('inventory.json', 'r') as f:
+    with open('inventory-netmiko.json', 'r') as f:
         devices = json.load(f)
-    with open('inventory-new.json', 'r') as file2:
+    with open('inventory.json', 'r') as file2:
         devices_meta = json.load(file2)
 
     # Go over all devices in our netmiko compatible inventory
