@@ -55,6 +55,12 @@ def get_svi_acl_ip(handler: ConnectHandler, device_meta):
     output = handler.send_command(command, use_textfsm=True)
     return output
 
+def get_ip_interface(handler: ConnectHandler, interface):
+
+    command = f"show ip interface {interface}"
+    output = handler.send_command(command, use_textfsm=True)
+    return output
+
 def get_ntp_status(handler: ConnectHandler, device_meta):
 
     command = "show ntp status"
@@ -92,7 +98,7 @@ def main():
     
     with open('inventory-netmiko.json', 'r') as f:
         devices = json.load(f)
-    with open('inventory-new.json', 'r') as file2:
+    with open('inventory.json', 'r') as file2:
         devices_meta = json.load(file2)
     # A list that will be passed over to jinja2
     # It holds dictionaries
@@ -130,8 +136,16 @@ def main():
                     routes = get_routes(handler)
                     routes_list = []
                     for route in routes:
-                        c = f"[{route['protocol']}] {route['network']}/{route['mask']} via {route['nexthop_ip']}"
-                        routes_list.append(c)
+                        if route['protocol'] == 'L':
+                            continue
+                        if route['protocol'] == 'C':
+                            ip_data = get_ip_interface(handler, route['nexthop_if'])
+                            in_acl = ip_data[0]['inbound_acl']
+                            c = f"[{route['protocol']}] {route['network']}/{route['mask']} inbound ACL: {in_acl}"
+                            routes_list.append(c)
+                        else:
+                            c = f"[{route['protocol']}] {route['network']}/{route['mask']} via {route['nexthop_ip']}"
+                            routes_list.append(c)
                 # Results processing
                 current_device = {}; t = []
                 current_device['hostname'] = device['host']
