@@ -21,11 +21,14 @@ and adds another route to 192.168.194.0/24 and 192.168.195.0/24 via the same NH
 
 
 
+
 def reconfigure_tacacs(handler: ConnectHandler):
     '''
     This function collects configured TACACS+ servers
 
     '''
+    print("Reconfiguring TACACS+ servers...")
+
     DESIRED_OUTPUT = ['192.168.194.11', '192.168.195.3']
     commands = []
     output = handler.send_command("show tacacs", use_textfsm=True)
@@ -109,6 +112,75 @@ def add_vty_acl(handler: ConnectHandler):
     output = handler.send_command(command, use_textfsm=True)
     print(output)
 
+def mgmt_svi_reconfigure(handler: ConnectHandler):
+
+    # First check if there is any existing extended ACL with number 101, if so, do nothing
+    if not mgmt_svi_check_acl_exist(handler):
+
+        # Now it's safe to deploy ACL 101
+        mgmt_svi_deploy_acl(handler)
+
+        # Verify if it has been deployed successfully
+        if mgmt_svi_verify_acl(handler):
+            mgmt_svi_modify(handler)
+    else:
+        print("ACL 101 exists, aborting...")
+            
+def mgmt_svi_modify(handler: ConnectHandler):
+    
+    print("Modifying management SVI configuration...")
+    command = "show ip interface Vlan861"
+    try:
+        output = handler.send_command(command, use_textfsm=True)
+        old_inbound_acl = output[0]['inbound_acl']
+        print(f"Old inbound ACL is {old_inbound_acl}")
+    except:
+        print("No management interface found")
+        return False
+    
+    commands = ['interface vlan 861', 'ip access-group 101 in']
+    output = handler.send_config_set(commands)
+
+    output = handler.send_command(command, use_textfsm=True)
+    new_inbound_acl = output[0]['inbound_acl']
+    print(f"New inbound ACL is {new_inbound_acl}")
+
+def mgmt_svi_deploy_acl(handler: ConnectHandler):
+    
+    print("Deploying ACL 101...")
+
+    acl = ['ip access-list extended 101', 'permit tcp host 192.168.194.13 any eq 22', 'permit tcp host 192.168.195.5 any eq 22', 'permit tcp host 192.168.194.23 any eq 22', 'permit tcp host 192.168.194.25 any eq 22', 'permit tcp host 192.168.194.27 any eq 22', 'permit tcp host 192.168.194.5 any eq 22', 'permit tcp host 192.168.194.7 any eq 22', 'permit tcp host 172.22.255.2 any eq 22', 'permit tcp host 172.22.255.10 any eq 22', 'permit tcp host 172.22.255.2 any eq 23', 'permit tcp host 172.22.255.10 any eq 23', 'permit tcp host 192.168.194.13 any eq 23', 'permit tcp host 192.168.195.5 any eq 23', 'permit tcp host 192.168.194.23 any eq 23', 'permit tcp host 192.168.194.25 any eq 23', 'permit udp host 172.22.255.10 any eq 161', 'permit tcp host 192.168.194.11 eq tacacs any', 'permit tcp host 192.168.195.3 eq tacacs any', 'permit icmp host 192.168.194.13 any', 'permit icmp host 192.168.195.5 any', 'permit icmp host 192.168.194.23 any', 'permit icmp host 192.168.194.25 any', 'permit icmp host 192.168.194.27 any', 'permit icmp host 172.22.255.10 any', 'permit icmp host 172.22.255.2 any', 'permit udp host 172.22.255.3 eq ntp any', 'permit udp host 192.168.194.13 eq ntp any', 'permit udp host 192.168.194.13 eq tftp any', 'permit udp host 192.168.195.5 eq tftp any', 'permit udp host 172.22.255.3 any eq snmp']
+    output = handler.send_config_set(acl)
+
+def mgmt_svi_check_acl_exist(handler: ConnectHandler):
+    
+    print("Checking if ACL 101 exists...")
+
+    command = "show ip access-lists 101"
+    output = handler.send_command(command, use_textfsm=True)
+
+    if not output:
+        return False
+    else:
+        return True
+
+
+def mgmt_svi_verify_acl(handler: ConnectHandler):
+  
+    acl_template = [{'name': '101', 'sn': '10', 'action': 'permit', 'protocol': 'tcp', 'source': 'host 192.168.194.13', 'port': '', 'range': '', 'destination': 'any', 'modifier': 'eq 22'}, {'name': '101', 'sn': '20', 'action': 'permit', 'protocol': 'tcp', 'source': 'host 192.168.195.5', 'port': '', 'range': '', 'destination': 'any', 'modifier': 'eq 22'}, {'name': '101', 'sn': '30', 'action': 'permit', 'protocol': 'tcp', 'source': 'host 192.168.194.23', 'port': '', 'range': '', 'destination': 'any', 'modifier': 'eq 22'}, {'name': '101', 'sn': '40', 'action': 'permit', 'protocol': 'tcp', 'source': 'host 192.168.194.25', 'port': '', 'range': '', 'destination': 'any', 'modifier': 'eq 22'}, {'name': '101', 'sn': '50', 'action': 'permit', 'protocol': 'tcp', 'source': 'host 192.168.194.27', 'port': '', 'range': '', 'destination': 'any', 'modifier': 'eq 22'}, {'name': '101', 'sn': '60', 'action': 'permit', 'protocol': 'tcp', 'source': 'host 192.168.194.5', 'port': '', 'range': '', 'destination': 'any', 'modifier': 'eq 22'}, {'name': '101', 'sn': '70', 'action': 'permit', 'protocol': 'tcp', 'source': 'host 192.168.194.7', 'port': '', 'range': '', 'destination': 'any', 'modifier': 'eq 22'}, {'name': '101', 'sn': '80', 'action': 'permit', 'protocol': 'tcp', 'source': 'host 172.22.255.2', 'port': '', 'range': '', 'destination': 'any', 'modifier': 'eq 22'}, {'name': '101', 'sn': '90', 'action': 'permit', 'protocol': 'tcp', 'source': 'host 172.22.255.10', 'port': '', 'range': '', 'destination': 'any', 'modifier': 'eq 22'}, {'name': '101', 'sn': '100', 'action': 'permit', 'protocol': 'tcp', 'source': 'host 172.22.255.2', 'port': '', 'range': '', 'destination': 'any', 'modifier': 'eq telnet'}, {'name': '101', 'sn': '110', 'action': 'permit', 'protocol': 'tcp', 'source': 'host 172.22.255.10', 'port': '', 'range': '', 'destination': 'any', 'modifier': 'eq telnet'}, {'name': '101', 'sn': '120', 'action': 'permit', 'protocol': 'tcp', 'source': 'host 192.168.194.13', 'port': '', 'range': '', 'destination': 'any', 'modifier': 'eq telnet'}, {'name': '101', 'sn': '130', 'action': 'permit', 'protocol': 'tcp', 'source': 'host 192.168.195.5', 'port': '', 'range': '', 'destination': 'any', 'modifier': 'eq telnet'}, {'name': '101', 'sn': '140', 'action': 'permit', 'protocol': 'tcp', 'source': 'host 192.168.194.23', 'port': '', 'range': '', 'destination': 'any', 'modifier': 'eq telnet'}, {'name': '101', 'sn': '150', 'action': 'permit', 'protocol': 'tcp', 'source': 'host 192.168.194.25', 'port': '', 'range': '', 'destination': 'any', 'modifier': 'eq telnet'}, {'name': '101', 'sn': '160', 'action': 'permit', 'protocol': 'udp', 'source': 'host 172.22.255.10', 'port': '', 'range': '', 'destination': 'any', 'modifier': 'eq snmp'}, {'name': '101', 'sn': '170', 'action': 'permit', 'protocol': 'tcp', 'source': 'host 192.168.194.11', 'port': 'eq', 'range': 'tacacs', 'destination': 'any', 'modifier': ''}, {'name': '101', 'sn': '180', 'action': 'permit', 'protocol': 'tcp', 'source': 'host 192.168.195.3', 'port': 'eq', 'range': 'tacacs', 'destination': 'any', 'modifier': ''}, {'name': '101', 'sn': '190', 'action': 'permit', 'protocol': 'icmp', 'source': 'host 192.168.194.13', 'port': '', 'range': '', 'destination': 'any', 'modifier': ''}, {'name': '101', 'sn': '200', 'action': 'permit', 'protocol': 'icmp', 'source': 'host 192.168.195.5', 'port': '', 'range': '', 'destination': 'any', 'modifier': ''}, {'name': '101', 'sn': '210', 'action': 'permit', 'protocol': 'icmp', 'source': 'host 192.168.194.23', 'port': '', 'range': '', 'destination': 'any', 'modifier': ''}, {'name': '101', 'sn': '220', 'action': 'permit', 'protocol': 'icmp', 'source': 'host 192.168.194.25', 'port': '', 'range': '', 'destination': 'any', 'modifier': ''}, {'name': '101', 'sn': '230', 'action': 'permit', 'protocol': 'icmp', 'source': 'host 192.168.194.27', 'port': '', 'range': '', 'destination': 'any', 'modifier': ''}, {'name': '101', 'sn': '240', 'action': 'permit', 'protocol': 'icmp', 'source': 'host 172.22.255.10', 'port': '', 'range': '', 'destination': 'any', 'modifier': ''}, {'name': '101', 'sn': '250', 'action': 'permit', 'protocol': 'icmp', 'source': 'host 172.22.255.2', 'port': '', 'range': '', 'destination': 'any', 'modifier': ''}, {'name': '101', 'sn': '260', 'action': 'permit', 'protocol': 'udp', 'source': 'host 172.22.255.3', 'port': 'eq', 'range': 'ntp', 'destination': 'any', 'modifier': ''}, {'name': '101', 'sn': '270', 'action': 'permit', 'protocol': 'udp', 'source': 'host 192.168.194.13', 'port': 'eq', 'range': 'ntp', 'destination': 'any', 'modifier': ''}, {'name': '101', 'sn': '280', 'action': 'permit', 'protocol': 'udp', 'source': 'host 192.168.194.13', 'port': 'eq', 'range': 'tftp', 'destination': 'any', 'modifier': ''}, {'name': '101', 'sn': '290', 'action': 'permit', 'protocol': 'udp', 'source': 'host 192.168.195.5', 'port': 'eq', 'range': 'tftp', 'destination': 'any', 'modifier': ''}, {'name': '101', 'sn': '300', 'action': 'permit', 'protocol': 'udp', 'source': 'host 172.22.255.3', 'port': '', 'range':'', 'destination':'any', 'modifier':'eq snmp'}] 
+    
+    print("Verifying ACL 101...")
+    command = "show ip access-lists 101"
+    output = handler.send_command(command, use_textfsm=True)
+    if output == acl_template:
+        print("ACL verified ok")
+        return True
+    else:
+        print("ACL verify failed")
+        return False
+    
+
+
 def reconfigure(device):
 
     """
@@ -117,27 +189,35 @@ def reconfigure(device):
     """
     handler = ConnectHandler(**device)
     
-    # 1. Check existing static routes, determine NH
+    print(f"### Working on {device['host']} ###")
+    
+    # 1. Reconfiguring management SVI (allow traffic from new systems, TACACS etc)
 
-    #print(f"### Working on {device['host']} ###")
-    #print(f"### Checking static routing BEFORE changes ###")
+    mgmt_svi_reconfigure(handler)
+
+    # 2. Check existing static routes, determine NH
+
+    print(f"### Checking static routing BEFORE changes ###")
  
-    #routes_before = get_routes(handler)
-    #mgmt_routes_before = process_routes(routes_before)
-    #nh = mgmt_routes_before[0]['nh']
+    routes_before = get_routes(handler)
+    mgmt_routes_before = process_routes(routes_before)
+    nh = mgmt_routes_before[0]['nh']
 
-    # 2. Add new routes via NH
+    # 3. Add new routes via NH
 
-    #print(f"### Adding new static routes... ###")
-    #add_routes(handler, nh)
+    print(f"### Adding new static routes... ###")
+    add_routes(handler, nh)
 
-    # 3. Verify if routes were addedd successfully
+    # 4. Verify if routes were addedd successfully
 
-    #print(f"### Checking static routing AFTER changes ###")
-    #routes_after = get_routes(handler)
-    #mgmt_routes_after = process_routes(routes_after)
+    print(f"### Checking static routing AFTER changes ###")
+    routes_after = get_routes(handler)
+    mgmt_routes_after = process_routes(routes_after)
 
     #add_vty_acl(handler)
+    
+
+
     reconfigure_tacacs(handler)
 
     # 3. Check configured TACACS servers
