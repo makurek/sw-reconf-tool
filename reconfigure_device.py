@@ -18,6 +18,66 @@ MGMT_PREFIXES = ["192.168.194.0/24", "192.168.195.0/24", "172.22.0.0/16", "172.2
 This script logs in to device, checks for presence of 172.22.255.0/24 route and its NH
 and adds another route to 192.168.194.0/24 and 192.168.195.0/24 via the same NH
 """
+def syslog_reconfigure(handler: ConnectHandler):
+    
+    DESIRED_STATE = ['192.168.194.9', '192.168.195.1']
+
+    print("Reconfiguring syslog...")
+
+    command = "show run | i logging"
+    output = handler.send_command(command)
+    match1 = re.findall(r'logging ([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})', output)
+    match2 = re.findall(r'logging host ([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})', output) 
+    match = match1 + match2
+    deletion = []
+    done = False
+    if match:
+        print(f"Found syslog servers {match}")
+        for s in match:
+            if s not in DESIRED_STATE:
+                deletion.append(s)
+            else:
+                done = True
+        if len(deletion) > 0:
+            syslog_del_server(deletion, handler)
+    else:
+        print(f"No existing syslog servers found")
+
+    if not done:
+        syslog_add_server(handler)
+        
+        if syslog_verify(DESIRED_STATE, handler):
+            print("Syslog reconfigured OK")
+    else:
+        print("There was no need to add any syslog servers")
+
+def syslog_add_server(handler: ConnectHandler):
+
+    print("Adding syslog servers...")
+    commands = ['logging 192.168.194.9', 'logging 192.168.195.1']
+    output = handler.send_config_set(commands)
+
+def syslog_del_server(servers, handler: ConnectHandler):
+    
+    print(f"Deleting existing syslog servers... {servers}")
+
+    commands = []
+    for server in servers:
+        commands.append(f"no logging {server}")
+    output = handler.send_config_set(commands)
+
+
+def syslog_verify(desired_state, handler: ConnectHandler):
+
+    command = "show run | i logging"
+    output = handler.send_command(command)
+    match = re.findall(r'logging ([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})', output)
+    if set(match) == set(desired_state):
+        return True
+    else:
+        return False
+
+
 
 def ntp_reconfigure(handler: ConnectHandler):
 
@@ -243,7 +303,7 @@ def reconfigure(device):
     print(f"### Working on {device['host']} ###")
 
 
-    ntp_reconfigure(handler)
+    syslog_reconfigure(handler)
     
     # 1. Reconfiguring management SVI (allow traffic from new systems, TACACS etc)
 
