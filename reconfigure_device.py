@@ -2,7 +2,7 @@
 
 import socket
 import json
-
+import re
 from netmiko import ConnectHandler
 import textfsm
 from jinja2 import Template
@@ -19,7 +19,62 @@ This script logs in to device, checks for presence of 172.22.255.0/24 route and 
 and adds another route to 192.168.194.0/24 and 192.168.195.0/24 via the same NH
 """
 
+def ntp_reconfigure(handler: ConnectHandler):
 
+    DESIRED_STATE = ['192.168.194.13']
+    
+    print("Reconfiguring NTP...")
+    
+    # First, let's get current NTP configuration
+    command = "show run | i ntp server"
+    output = handler.send_command(command)
+    match = re.findall(r'[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}', output)
+    deletion = []
+    done = False
+    if match:
+        print(f"Found NTP servers {match}")
+        for s in match:
+            if s not in DESIRED_STATE:
+                deletion.append(s)
+            else:
+                done = True
+        if len(deletion) > 0:
+            ntp_del_server(deletion, handler)
+    else:
+        print(f"No existing NTP servers found")
+
+    if not done:
+        ntp_add_server(handler)
+
+        if ntp_verify(handler):
+            print("NTP reconfigured OK")
+        else:
+            print("Failed to reconfigure NTP")
+    else:
+        print("There was no need to add any servers")
+
+def ntp_add_server(handler: ConnectHandler):
+
+    commands = ['ntp server 192.168.194.13']
+    output = handler.send_config_set(commands)
+
+def ntp_del_server(servers, handler: ConnectHandler):
+
+    print(f"Deleting existing servers...{servers}")
+    commands = []
+    for server in servers:
+        commands.append(f"no ntp server {server}")
+    output = handler.send_config_set(commands)
+
+def ntp_verify(handler: ConnectHandler):
+
+    command = "show run | i ntp server"
+    output = handler.send_command(command)
+    match = re.findall(r'[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}', output)
+    if (len(match) == 1) and (match[0] == '192.168.194.13'):
+        return True
+    else:
+        return False
 
 
 def reconfigure_tacacs(handler: ConnectHandler):
@@ -51,8 +106,6 @@ def reconfigure_tacacs(handler: ConnectHandler):
 
     if final_list == DESIRED_OUTPUT:
         print("ALL GOOD!")
-
-    
 
 def get_vty_acls(handler: ConnectHandler, device_meta):
 
@@ -179,8 +232,6 @@ def mgmt_svi_verify_acl(handler: ConnectHandler):
         print("ACL verify failed")
         return False
     
-
-
 def reconfigure(device):
 
     """
@@ -190,35 +241,36 @@ def reconfigure(device):
     handler = ConnectHandler(**device)
     
     print(f"### Working on {device['host']} ###")
+
+
+    ntp_reconfigure(handler)
     
     # 1. Reconfiguring management SVI (allow traffic from new systems, TACACS etc)
 
-    mgmt_svi_reconfigure(handler)
+    #mgmt_svi_reconfigure(handler)
 
     # 2. Check existing static routes, determine NH
 
-    print(f"### Checking static routing BEFORE changes ###")
+    #print(f"### Checking static routing BEFORE changes ###")
  
-    routes_before = get_routes(handler)
-    mgmt_routes_before = process_routes(routes_before)
-    nh = mgmt_routes_before[0]['nh']
+    #routes_before = get_routes(handler)
+    #mgmt_routes_before = process_routes(routes_before)
+    #nh = mgmt_routes_before[0]['nh']
 
     # 3. Add new routes via NH
 
-    print(f"### Adding new static routes... ###")
-    add_routes(handler, nh)
+    #print(f"### Adding new static routes... ###")
+    #add_routes(handler, nh)
 
     # 4. Verify if routes were addedd successfully
 
-    print(f"### Checking static routing AFTER changes ###")
-    routes_after = get_routes(handler)
-    mgmt_routes_after = process_routes(routes_after)
+    #print(f"### Checking static routing AFTER changes ###")
+    #routes_after = get_routes(handler)
+    #mgmt_routes_after = process_routes(routes_after)
 
     #add_vty_acl(handler)
-    
 
-
-    reconfigure_tacacs(handler)
+    #reconfigure_tacacs(handler)
 
     # 3. Check configured TACACS servers
 
