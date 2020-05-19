@@ -27,7 +27,11 @@
 	   </thead>
 	   <tbody>
 		{% for device in devices %}
-			<tr>
+			{% if device['compliant'] == 'True' %}
+			<tr style="background-color: mediumseagreen;">
+			{% else %}
+			<tr style="background-color: tomato;">
+			{% endif %}
 				<td>{{ loop.index }}</td>
 				<td>{{ device['hostname'] }}</td>
 				<td>

@@ -160,6 +160,15 @@ def main():
                 current_device['tacacs'] = t
                 current_device['syslog_servers'] = logging_server
                 current_device['routes'] = routes_list
+                
+
+
+                if current_device['vlan861_acl'] == '101' and current_device['ntp_server'] == 'reference is 192.168.194.13' and current_device['tacacs'] == ['192.168.194.11', '192.168.195.3']:
+                    current_device['compliant'] = "True"
+                else:
+                    current_device['compliant'] = "False"
+                
+                print(current_device['compliant'])
                     # Append assembled dict to final list
                 report_devices.append(current_device)
             except Exception as e:

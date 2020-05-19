@@ -137,7 +137,7 @@ def ntp_verify(handler: ConnectHandler):
         return False
 
 
-def reconfigure_tacacs(handler: ConnectHandler):
+def tacacs_reconfigure(handler: ConnectHandler):
     '''
     This function collects configured TACACS+ servers
 
@@ -292,6 +292,47 @@ def mgmt_svi_verify_acl(handler: ConnectHandler):
         print("ACL verify failed")
         return False
     
+
+def routing_reconfigure(handler: ConnectHandler):
+
+    # Check existing static routes, determine NH
+
+    DESIRED_STATE = ['192.168.194.0/24', '192.168.195.0/24']
+
+    print(f"Checking static routing BEFORE changes...")
+ 
+    routes_before = get_routes(handler)
+
+    # Maybe dangerous assumption is that all routes will lead through the same interface?
+    
+    mgmt_routes_before = process_routes(routes_before)
+    pfx_before  = []
+    for d in mgmt_routes_before:
+        if d['prefix'] in DESIRED_STATE:
+            pfx_before.append(d['prefix'])
+    if(len(mgmt_routes_before)) > 0:
+
+        if DESIRED_STATE == pfx_before:
+            print("Routes 192.168.194.0/24 and 192.168.195.0/24 already present, doing nothing")
+            return
+
+        # So I take first interface
+        nh = mgmt_routes_before[0]['nh']
+
+        # Add new routes via NH
+    
+        print(f"Adding new static routes...")
+        add_routes(handler, nh)
+
+        # Verify if routes were addedd successfully
+
+        print(f"Checking static routing AFTER changes")
+        routes_after = get_routes(handler)
+        mgmt_routes_after = process_routes(routes_after)
+    else:
+        print("Someting went wrong, no mgmt routes found, I couldn't derive NH... Config not changed")
+
+
 def reconfigure(device):
 
     """
@@ -301,32 +342,14 @@ def reconfigure(device):
     handler = ConnectHandler(**device)
     
     print(f"### Working on {device['host']} ###")
-
-
-    syslog_reconfigure(handler)
     
+    routing_reconfigure(handler)
+    mgmt_svi_reconfigure(handler)
+    tacacs_reconfigure(handler)
+    syslog_reconfigure(handler)
+    ntp_reconfigure(handler)
+    handler.save_config()
     # 1. Reconfiguring management SVI (allow traffic from new systems, TACACS etc)
-
-    #mgmt_svi_reconfigure(handler)
-
-    # 2. Check existing static routes, determine NH
-
-    #print(f"### Checking static routing BEFORE changes ###")
- 
-    #routes_before = get_routes(handler)
-    #mgmt_routes_before = process_routes(routes_before)
-    #nh = mgmt_routes_before[0]['nh']
-
-    # 3. Add new routes via NH
-
-    #print(f"### Adding new static routes... ###")
-    #add_routes(handler, nh)
-
-    # 4. Verify if routes were addedd successfully
-
-    #print(f"### Checking static routing AFTER changes ###")
-    #routes_after = get_routes(handler)
-    #mgmt_routes_after = process_routes(routes_after)
 
     #add_vty_acl(handler)
 
@@ -365,6 +388,14 @@ def main():
         # We skip IOS XR and IOS XE boxes, as they receive routes via BGP
         try:
             reconfigure(device)
+            temp = "x"
+            while temp != "y" and temp != "n":
+                temp = input("Do you want to proceed with the next device? [y/n]")
+            if temp == "y":
+                continue
+            else:
+                break
+            
         except Exception as e:
             print(e)    
 
