@@ -163,7 +163,7 @@ def main():
                 
 
 
-                if current_device['vlan861_acl'] == '101' and current_device['ntp_server'] == 'reference is 192.168.194.13' and current_device['tacacs'] == ['192.168.194.11', '192.168.195.3']:
+                if current_device['vlan861_acl'] == '101' and current_device['ntp_server'] == 'reference is 192.168.194.13' and current_device['tacacs'] == ['192.168.194.11', '192.168.195.3'] and current_device['vty'].get('acl') == '3':
                     current_device['compliant'] = "True"
                 else:
                     current_device['compliant'] = "False"

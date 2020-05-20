@@ -208,23 +208,6 @@ def add_routes(handler: ConnectHandler, nh: str):
     output = handler.send_config_set(route_1)
     output = handler.send_config_set(route_2)
 
-def add_vty_acl(handler: ConnectHandler):
-
-    # First check if there is any existing standard ACL with number 3
-    
-    command = "show ip access-lists 3"
-    output = handler.send_command(command, use_textfsm=True)
-    
-    # If there isn't, we can proceed
-
-    if not output:
-        acl = ['ip access-list standard 3', 'permit host 192.168.194.14', 'permit host 192.168.195.5', 'permit host 192.168.194.23','permit host 192.168.194.25','permit host 192.168.194.27','permit host 192.168.194.5','permit host 192.168.194.7', 'permit host 172.22.255.2', 'permit host 172.22.255.10']
-        output = handler.send_config_set(acl)
-    
-    command = "show ip access-lists 3"
-    output = handler.send_command(command, use_textfsm=True)
-    print(output)
-
 def mgmt_svi_reconfigure(handler: ConnectHandler):
 
     # First check if there is any existing extended ACL with number 101, if so, do nothing
@@ -332,8 +315,82 @@ def routing_reconfigure(handler: ConnectHandler):
     else:
         print("Someting went wrong, no mgmt routes found, I couldn't derive NH... Config not changed")
 
+def add_vty_acl(device_type, handler: ConnectHandler):
 
-def reconfigure(device):
+    # First check if there is any existing standard ACL with number 3
+    print("Checking if there is standard ACL 3...")
+
+    command = "show ip access-lists 3"
+    output = handler.send_command(command, use_textfsm=True)
+    
+    # If there isn't, we can proceed
+
+    if not output:
+        acl = ['ip access-list standard 3', 'permit host 192.168.194.14', 'permit host 192.168.195.5', 'permit host 192.168.194.23','permit host 192.168.194.25','permit host 192.168.194.27','permit host 192.168.194.5','permit host 192.168.194.7', 'permit host 172.22.255.2', 'permit host 172.22.255.10']
+        print("No standard ACL 3 found, deploying templated ACL...")
+        output = handler.send_config_set(acl)
+
+    else:
+        print("Standard ACL 3 already exists, skipping. No config has been modified")
+        return
+    
+    command = "show ip access-lists 3"
+    output = handler.send_command(command, use_textfsm=True)
+
+    if device_type == "WS-C3560-48TS-S" or device_type == "WS-C3560G-24TS-S" or device_type == "WS-C3560-48TS-S" or device_type == "WS-C3550-48-SMI" or device_type == "WS-C3550-24-SMI" or device_type == "WS-C3750G-12S-S":
+        commands = ['line vty 0 15', 'access-class 3 in']
+        output = handler.send_config_set(commands)
+        print("VTY ACL has been deployed")
+
+    elif device_type == "WS-C4948E" or device_type == "WS-C4900M" or device_type == "WS-C4948-10GE" or device_type == "WS-C4500X-32":
+        commands = ['line vty 0 16', 'access-class 3 in']
+        output = handler.send_config_set(commands)
+        print("VTY ACL has been deployed")
+    else:
+        print(f"Unknown device type. VTY ACLs has not been modified")
+
+    result = get_vty_acls(handler, device_type)
+    result2 = process_vty_acls(result)
+    if result2['acl'] == '3':
+        print("VTY ACL has been successfully set")
+    else:
+        print("Error: VTY ACL has not been set")
+
+def get_vty_acls(handler: ConnectHandler, device_type):
+
+    if device_type == 'ASR-920-24SZ-IM':
+        command = "show line vty 0 197"
+    elif '3550' or '3560' or '3750' in device_type:
+        command = "show line vty 0 15"
+    elif '4900' or '4948' or '4500' in device_type:
+        command = "show line vty 0 16"
+    output = handler.send_command(command, use_textfsm=True)
+    return output
+
+def process_vty_acls(vty_acls):
+    '''
+    Convert JSON from the device into a form suitable for reporting
+    '''
+    tty_array = []
+    acl = set()
+    # First, I check if result is uniform across all VTYs
+    for vty in vty_acls:
+        tty_array.append(int(vty['tty']))
+        acl.add(vty['acci'])
+    val_min = min(tty_array)
+    val_max = max(tty_array)
+    if len(acl) == 1:
+        d = {}
+        d['range_min'] = val_min
+        d['range_max'] = val_max
+        d['acl'] = list(acl)[0]
+        return d
+    else:
+        return "Non uniform"
+
+
+
+def reconfigure(device, device_type):
 
     """
     Main routine to reconfigure the box
@@ -348,6 +405,7 @@ def reconfigure(device):
     tacacs_reconfigure(handler)
     syslog_reconfigure(handler)
     ntp_reconfigure(handler)
+    add_vty_acl(device_type, handler)
     handler.save_config()
     # 1. Reconfiguring management SVI (allow traffic from new systems, TACACS etc)
 
@@ -387,14 +445,14 @@ def main():
     for device in devices:
         # We skip IOS XR and IOS XE boxes, as they receive routes via BGP
         try:
-            reconfigure(device)
+            print(f"### Current device is {device['host']} ###")
             temp = "x"
             while temp != "y" and temp != "n":
-                temp = input("Do you want to proceed with the next device? [y/n]")
+                temp = input("Do you want to proceed? [y/n]")
             if temp == "y":
-                continue
+                reconfigure(device, devices_meta[device['host']].get('model'))
             else:
-                break
+                continue
             
         except Exception as e:
             print(e)    
